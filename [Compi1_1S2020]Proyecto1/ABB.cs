@@ -46,12 +46,12 @@ namespace _Compi1_1S2020_Proyecto1
                 }
                 else
                 {
-                    
-                    //if (obj instanceof Nodo){
-                    //    r = (Nodo)obj;
-                    //}else{
-                      Nodo  r = new Nodo(dato);
-                    //}
+                    Nodo r;
+                    if (dato is Nodo){
+                        r = (Nodo)dato;
+                    }else{
+                         r= new Nodo(dato);
+                    }
                     return r;
                 }
             }

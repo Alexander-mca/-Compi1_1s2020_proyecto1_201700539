@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,12 +16,16 @@ namespace _Compi1_1S2020_Proyecto1
     {
         List<Token> TablaSimbolos = new List<Token>();
         List<Token> Errores = new List<Token>();
+        int img = 0;
         OpenFileDialog abrir;
         SaveFileDialog save;
-        //Dictionary<String, Object> Expresiones=new Dictionary<String, Object>();
+        List<String> valores = new List<String>();
+        Dictionary<String, Object> Expresiones = new Dictionary<String, Object>();
         public Form1()
         {
             InitializeComponent();
+          
+         
         }
 
         private void tabPage1_Click(object sender, EventArgs e)
@@ -218,7 +223,7 @@ namespace _Compi1_1S2020_Proyecto1
                         if (Char.IsLetterOrDigit(c))
                         {
                             lexema += c;
-                            estado = 3;
+                            estado = 5;
                         }
                         else
                         {
@@ -397,7 +402,8 @@ namespace _Compi1_1S2020_Proyecto1
                                         }
                                         else
                                         {
-                                            x = a;
+                                            
+                                            x= a;
                                             break;
                                         }
                                         a++;
@@ -407,7 +413,7 @@ namespace _Compi1_1S2020_Proyecto1
                                     Conjunto conj = new Conjunto(idConj,ValC);
                                     //se agrega el conjunto con su id al Dictionary de expresiones
                                     expresiones[idConj]=conj;
-                                    i = x;
+                                    i=x;
                                     break;
                                 }
                             }
@@ -418,7 +424,7 @@ namespace _Compi1_1S2020_Proyecto1
                         String idExp = tk.lexema;
 
                         if (!expresiones.ContainsKey(idExp))
-                        {
+                        {//aca swe se obtiene la expresion
                             Token tk1 = TablaSimbolos[x + 1];
                             Token tk2 = TablaSimbolos[x + 2];
                             List<Token> lista = new List<Token>();
@@ -431,31 +437,10 @@ namespace _Compi1_1S2020_Proyecto1
                                     Tipo tip = TablaSimbolos[i].tipo;
                                     if (!tip.Equals(Token.Tipo.puntoycoma))
                                     {
-
-                                        //switch ((int)tip)
-                                        //{
-                                        //    case 21:
-
-                                        //    if (expresiones.ContainsKey(tk3.lexema))
-                                        //     {
-                                        //     Object obj = expresiones[tk3.lexema];
-                                        //            if (obj is Conjunto)
-                                        //            {
-                                        //                lista.Add(tk3);
-                                        //                break;
-                                        //            }
-                                        //    }           
-
-
-                                        //   break;
-                                        //   case 17:
-                                        //   case 18:
-                                        //   break;
-                                        //   default:
-                                        //       lista.Add(tk3);
-                                        //   break;
-                                        //}
-                                        lista.Add(tk3);
+                                        if (!tip.Equals(Tipo.coma))
+                                        {
+                                            lista.Add(tk3);
+                                        }
                                     } else {
                                      x=i;
                                      break;
@@ -467,17 +452,60 @@ namespace _Compi1_1S2020_Proyecto1
                             Expresion exp = new Expresion(idExp, expArbol);
                             //se guarda la expresion en el Dictionary
                             expresiones[idExp] = exp;
+                            //se genera el AFN por thompson, se genera una EDD 
+                            valores.Add(idExp+".png");
+                            Thompson tom = new Thompson(expArbol);
+                            tom.GetArbol();
+                            //se crea la imagen del afn
+                            String contenido=tom.Graficar(idExp);
+                            StreamWriter file = new StreamWriter(idExp+".txt");
+                            
+
+                            try
+                            {
+                                String []data = contenido.Split('\n');
+                                foreach (String item in data)
+                                {
+                                    file.WriteLine(item);
+                                }
+                               
+                                file.Close();
+                            }
+                            catch (Exception e)
+                            {
+                                
+                            }
+
+                            tom.executeCommand("dot -Tpng " + idExp + ".txt -o "+idExp+".png");
+                            try
+                            {
+
+                                System.Diagnostics.Process.Start(idExp + ".png");
+                                pictureBox1.Image = Image.FromFile(idExp + ".png");
+                                //archivo.delete();
+
+                            }
+                            catch (Exception ex)
+                            {
+
+                            }
                         }
                         else
                         {
                             //en caso de que ya exista un id de Expresion con ese nombre, puede ser la cadena a validar de la expresion 
+                            Token cadena = TablaSimbolos[x + 2];
+                            if (cadena.tipo.Equals(Tipo.cadena))
+                            {
+
+                            }
 
                         }
                     }
                 }
             }
-            return null;
+            return expresiones;
         }
+
          private ABB GenerarArbol(List<Token> lista)
         { //esta funcion lo que hace es convertir la lista de tokens de una expresion regular a un arbol binario de busqueda
             List<String> errores = new List<String>();
@@ -490,12 +518,13 @@ namespace _Compi1_1S2020_Proyecto1
                    Token tk = lista[x];
                     
                     
-                    switch ((int)tk.tipo)
+                    switch (tk.tipo)
                     {
-                        case 2:
+                        case Tipo.id:
+                        case Tipo.cadena:
                             pila.Push(tk);
                             break;
-                        case 12:
+                        case Tipo.mas:
                             Object izq = pila.Pop().valor;
                             ABB arb = new ABB();
                             arb.Add(arb.raiz, tk);
@@ -508,19 +537,21 @@ namespace _Compi1_1S2020_Proyecto1
 
                             pila.Push(arb);
                             break;
-                        case 16:
+                        case Tipo.interrogacion:
                             Object izq2 = pila.Pop().valor;
                             ABB arb2 = new ABB();
                             arb2.Add(arb2.raiz, tk);
                             if (izq2 is ABB){
                                 ABB izq23 = (ABB)izq2;
                                 arb2.Add(arb2.raiz, izq23.raiz);
-                            }else{
+                                //arb2.Add(arb2.raiz, izq23.raiz.izq);
+                            }
+                            else{
                                 arb2.Add(arb2.raiz, izq2);
                             }
                             pila.Push(arb2);
                             break;
-                        case 8:
+                        case Tipo.asterisco:
                             Object izq1 = pila.Pop().valor;
                             ABB arb1 = new ABB();
                             arb1.Add(arb1.raiz, tk);
@@ -532,8 +563,8 @@ namespace _Compi1_1S2020_Proyecto1
                             }
                             pila.Push(arb1);
                             break;
-                        case 6:
-                        case 10:
+                        case Tipo.punto:
+                        case Tipo.or:
                             if (pila.size() > 1)
                             {
                                 Object izquierdo = pila.Pop().valor;
@@ -601,31 +632,292 @@ namespace _Compi1_1S2020_Proyecto1
 
         private void abrirToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            Abrir();
 
         }
         private void Abrir()
         {
             abrir = new OpenFileDialog();
 
-            abrir.Filter = "Archivos de texto (*.LS)|*.LS|Archivos de texto (*.txt)|*.txt";
+            abrir.Filter = "Archivos de texto (*.er)|*.er|Archivos de texto (*.txt)|*.txt";
             if (abrir.ShowDialog() == DialogResult.OK)
             {
                 StreamReader arch = new StreamReader(abrir.FileName);
-                text1.Text = arch.ReadToEnd();
+                TabPage page = new TabPage(abrir.SafeFileName);
+                page.SetBounds(0, 0, pestañas.Width, pestañas.Height);
+                RichTextBox text = new RichTextBox();
+                text.SetBounds(0, 0, page.Width - 2, page.Height-2);
+                text.Text = arch.ReadToEnd();
+                page.Controls.Add(text);
+                pestañas.TabPages.Add(page);
                 Dock = DockStyle.Fill;
-                tabs.
-
-
-
-
-
-
-
                 arch.Close();
 
             }
-            String tex = text1.Text;
-            text1.Clear();
+            //String tex = text1.Text;
+            //comando.Clear();
+        }
+
+        private void guardarToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+            if (abrir == null)
+            {
+               
+                MessageBox.Show("El archivo no existe.", "Mensaje de error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            else
+            {
+                StreamWriter w = new StreamWriter(abrir.FileName);
+                w.WriteLine(getRTB().Text);
+                w.Close();
+                MessageBox.Show("Archivo guardado.", "Mensaje de Confirmación.", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void guardarComoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (abrir != null)
+            {
+                save = new SaveFileDialog();
+                save.FileName = abrir.FileName;
+
+                // filtros
+                save.Filter = "Archivos de texto (*.er)|*.er|Archivos de texto (*.txt)|*.txt";
+
+                if (save.ShowDialog() == DialogResult.OK)
+                {
+                    RichTextBox w = new RichTextBox();
+                    w =getRTB();
+                    Dock = DockStyle.Fill;
+                    w.SaveFile(save.FileName, RichTextBoxStreamType.UnicodePlainText);
+                }
+
+
+            }
+            else
+            {
+                save = new SaveFileDialog();
+
+
+                // filtros
+                save.Filter = "Archivos de texto (*.LS)|*.LS|Archivos de texto (*.txt)|*.txt";
+
+                if (save.ShowDialog() == DialogResult.OK)
+                {
+                    RichTextBox w = new RichTextBox();
+                    w = getRTB();
+                    Dock = DockStyle.Fill;
+                    w.SaveFile(save.FileName, RichTextBoxStreamType.PlainText);
+                }
+            }
+        }
+
+        private void salirToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DialogResult boton = MessageBox.Show("¿Esta seguro?", "", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+            if (boton == DialogResult.OK)
+            {
+                this.Close();
+            }
+        }
+
+        private RichTextBox getRTB()
+        {
+
+            TabPage c = pestañas.SelectedTab;
+            Control.ControlCollection x = c.Controls;
+            foreach (Control item in x)
+            {
+                if (item is RichTextBox)
+                {
+                    RichTextBox text = (RichTextBox)item;
+                    return text;
+                }
+            }
+            return null;
+        }
+
+        private String ReporteTS()
+        {
+            String data = "<ListaTokens>\n";
+            foreach(Token item in TablaSimbolos)
+            {
+                data+="<Token>\n" +
+                    "<Nombre>" +item.tipo.ToString()+
+                    "</Nombre>\n" +
+                    "<Valor>" +item.lexema+
+                    "</Valor>\n" +
+                    "<Fila>" +item.linea+
+                    "</Fila>\n" +
+                    "<Columna>" +item.columna+
+                    "</Columna>\n"+
+                    "</Token>\n";
+            }
+            data += "</ListaTokens>\n";
+            return data;
+        }
+
+        private String ReporteErrores()
+        {
+            String data = "<ListaErrores>\n";
+            foreach (Token item in Errores)
+            {
+                data += "<Error>\n" +                   
+                    "<Valor>" + item.lexema +
+                    "</Valor>\n" +
+                    "<Fila>" + item.linea +
+                    "</Fila>\n" +
+                    "<Columna>" + item.columna +
+                    "</Columna>\n" +
+                    "</Error>\n";
+            }
+            data += "</ListaErrores>\n";
+            return data;
+        }
+
+        public void ErroresHtml()
+        {
+
+
+            String Contenido;
+            Contenido = "<html>" +
+            "<body>" +
+            "<h1 align='center'>Lista de Errores</h1></br>" +
+            "<table cellpadding='10' border = '1' align='center'>" +
+            "<tr>" +
+            "<td><strong>No." +
+            "</strong></td>" +
+
+            "<td><strong>Lexema" +
+            "</strong></td>" +
+            //"<td><strong>Tipo" +
+            //"</strong></td>" +
+
+           "<td><strong>Fila" +
+            "</strong></td>" +
+
+            "<td><strong>Columna" +
+            "</strong></td>" +
+
+            // "<td><strong>Token" +
+            //"</strong></td>" +
+
+            "</tr>";
+
+            String CadTokens = "";
+            String tempotk;
+
+            for (int i = 0; i < Errores.Count; i++)
+            {
+                tempotk = "";
+                tempotk = "<tr>" +
+                "<td><strong>" + Convert.ToString(i + 1) +
+                "</strong></td>" +
+                "<td>" + Errores.ElementAt(i).lexema +
+                "</td>" +
+
+                //"<td>"
+                //+ Errores.ElementAt(i).descripcion +
+                //"</td>" +
+
+                "<td>" + Errores.ElementAt(i).linea +
+                "</td>" +
+
+                "<td>" + Errores.ElementAt(i).columna +
+                "</td>" +
+
+                //"<td>" + Tokens.ElementAt(i).token +
+                //"</td>" +
+
+                "</tr>";
+                CadTokens = CadTokens + tempotk;
+
+            }
+
+            Contenido = Contenido + CadTokens +
+            "</table>" +
+            "</body>" +
+            "</html>";
+
+
+            /*creando archivo html*/
+            File.WriteAllText("Reporte de Errores.html", Contenido);
+            System.Diagnostics.Process.Start("Reporte de Errores.html");
+
+
+        }
+
+        private void tablaDeErroresToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (Errores.Count!=0)
+            {
+                ErroresHtml();
+            }
+            else
+            {
+                MessageBox.Show("No hay errores en el texto.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void analizarToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void cargarThompsonToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Expresiones.Clear();
+            TablaSimbolos.Clear();
+            Errores.Clear();
+            Analizar(getRTB().Text);
+            if (Errores.Count != 0)
+            {
+                  MessageBox.Show("Hay errores en el texto.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                Expresiones = CrearExpConj();
+            }
+            
+
+        }
+
+        private void guardarTokensToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            String reporte = ReporteTS();
+            File.WriteAllText("Tokes.xml", reporte);
+            System.Diagnostics.Process.Start("Tokens.xml");
+        }
+
+        private void guardarErroresToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            String err = ReporteErrores();
+            File.WriteAllText("Errores.xml", err);
+            System.Diagnostics.Process.Start("Errores.xml");
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            img--;
+            if (img < 0)
+            {
+                this.img = valores.Count - 1;
+            }
+            pictureBox1.Image = Image.FromFile(valores[img]);
+            
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            img++;
+            if (img == valores.Count)
+            {
+                this.img = 0;
+            }
+            pictureBox1.Image = Image.FromFile(valores[img]);
+            
+           
         }
     }
 }
